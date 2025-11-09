@@ -1,0 +1,40 @@
+version: "3.8"
+
+services:
+  backend:
+    image: kashan2912/ezy-backend:latest
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - MONGO_URI=${MONGO_URI}
+      - UPSTASH_REDIS_URL=${UPSTASH_REDIS_URL}
+      - ACCESS_TOKEN_SECRET=${ACCESS_TOKEN_SECRET}
+      - REFRESH_TOKEN_SECRET=${REFRESH_TOKEN_SECRET}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - CLIENT_URL=${CLIENT_URL}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mongo
+
+  frontend:
+    image: kashan2912/ezy-frontend:latest
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+  mongo:
+    image: mongo:6.0
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=ecommerce_db
+
+volumes:
+  mongo_data:
