@@ -25,6 +25,7 @@ const allowedOrigins = [
   "http://3.110.105.30:5174",
 ];
 
+//test
 const corsOptions = {
   origin: allowedOrigins,
   credentials: true,
