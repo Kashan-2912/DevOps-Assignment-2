@@ -6,7 +6,7 @@ pipeline {
         DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
         
         // Git repository URL
-        GIT_REPO = 'https://github.com/YOUR_GITHUB_USERNAME/ezyshopper.git'
+        GIT_REPO = 'https://github.com/Kashan-2912/DevOps-Assignment-2.git'
         GIT_BRANCH = 'main'
         
         // Application name
@@ -26,6 +26,41 @@ pipeline {
                 echo "Code checkout completed successfully!"
             }
         }
+
+        stage('Create .env') {
+      steps {
+        // map each secret credential id to an environment variable inside withCredentials
+        withCredentials([
+          string(credentialsId: 'MONGO_URI', variable: 'MONGO_URI'),
+          string(credentialsId: 'UPSTASH_REDIS_URL', variable: 'UPSTASH_REDIS_URL'),
+          string(credentialsId: 'ACCESS_TOKEN_SECRET', variable: 'ACCESS_TOKEN_SECRET'),
+          string(credentialsId: 'REFRESH_TOKEN_SECRET', variable: 'REFRESH_TOKEN_SECRET'),
+          string(credentialsId: 'CLOUDINARY_CLOUD_NAME', variable: 'CLOUDINARY_CLOUD_NAME'),
+          string(credentialsId: 'CLOUDINARY_API_KEY', variable: 'CLOUDINARY_API_KEY'),
+          string(credentialsId: 'CLOUDINARY_API_SECRET', variable: 'CLOUDINARY_API_SECRET'),
+          string(credentialsId: 'STRIPE_SECRET_KEY', variable: 'STRIPE_SECRET_KEY'),
+          string(credentialsId: 'CLIENT_URL', variable: 'CLIENT_URL')
+        ]) {
+          // create .env file in workspace with safe permissions
+          sh '''
+            cat > .env <<EOF
+MONGO_URI=${MONGO_URI}
+UPSTASH_REDIS_URL=${UPSTASH_REDIS_URL}
+ACCESS_TOKEN_SECRET=${ACCESS_TOKEN_SECRET}
+REFRESH_TOKEN_SECRET=${REFRESH_TOKEN_SECRET}
+CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+CLIENT_URL=${CLIENT_URL}
+EOF
+            # ensure .env is not readable by other users (optional)
+            chmod 600 .env
+            echo ".env created"
+          '''
+        }
+      }
+    }
         
         stage('Environment Setup') {
             steps {
