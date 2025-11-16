@@ -1,4 +1,4 @@
-# EzyShopper Architecture Documentation
+ # EzyShopper Architecture Documentation
 
 ## System Architecture Overview
 
