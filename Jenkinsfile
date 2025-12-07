@@ -19,11 +19,11 @@ pipeline {
         APP_NAME = 'ezyshopper'
         
         // Application URLs (for Selenium tests)
-        FRONTEND_URL = 'http://localhost:5174'
-        BACKEND_URL = 'http://localhost:3001'
+        FRONTEND_URL = 'http://13.234.238.153:5174'
+        BACKEND_URL = 'http://13.234.238.153:3001'
         
         // Email notification (fallback if git committer email not found)
-        DEFAULT_EMAIL = 'your-email@gmail.com'
+        DEFAULT_EMAIL = 'mkashan2912@gmail.com'
     }
     
     stages {
@@ -180,10 +180,10 @@ EOF
                         --network host \
                         -v $(pwd)/selenium-tests:/tests \
                         -w /tests \
-                        -e BASE_URL=http://localhost:5174 \
-                        -e BACKEND_URL=http://localhost:3001 \
+                        -e BASE_URL=http://13.234.238.153:5174 \
+                        -e BACKEND_URL=http://13.234.238.153:3001 \
                         markhobson/maven-chrome:latest \
-                        mvn clean test -DbaseUrl=http://localhost:5174
+                        mvn clean test -DbaseUrl=http://13.234.238.153:5174
                 '''
                 
                 echo "Selenium tests completed successfully!"
