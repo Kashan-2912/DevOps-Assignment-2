@@ -165,12 +165,8 @@ EOF
                 
                 // Clean up old selenium-tests directory to fix permission issues
                 sh '''
-                    if [ -d "selenium-tests" ]; then
-                        echo "Cleaning up old selenium-tests directory..."
-                        # Use Docker to clean files created by Docker containers (owned by root)
-                        docker run --rm -v "$(pwd)/selenium-tests:/data" alpine sh -c "rm -rf /data/*" || true
-                        rm -rf selenium-tests || true
-                    fi
+                    echo "Force-cleaning selenium-tests using Docker root..."
+                    docker run --rm -v $(pwd):/workspace alpine sh -c "rm -rf /workspace/selenium-tests"
                 '''
                 
                 // Clone selenium test repository
