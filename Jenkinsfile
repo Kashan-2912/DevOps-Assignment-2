@@ -163,6 +163,15 @@ EOF
                     echo "========== Stage 6: Running Selenium Tests =========="
                 }
                 
+                // Clean up old selenium-tests directory to fix permission issues
+                sh '''
+                    if [ -d "selenium-tests" ]; then
+                        echo "Cleaning up old selenium-tests directory..."
+                        chmod -R 777 selenium-tests || true
+                        rm -rf selenium-tests
+                    fi
+                '''
+                
                 // Clone selenium test repository
                 dir('selenium-tests') {
                     git branch: "${TEST_BRANCH}",
@@ -184,6 +193,9 @@ EOF
                         -e BACKEND_URL=http://13.234.238.153:3001 \
                         markhobson/maven-chrome:latest \
                         mvn clean test -DbaseUrl=http://13.234.238.153:5174
+                    
+                    # Fix permissions on generated files
+                    chmod -R 755 selenium-tests/target || true
                 '''
                 
                 echo "Selenium tests completed successfully!"
@@ -205,15 +217,8 @@ EOF
                 // Archive test results
                 junit '**/target/surefire-reports/*.xml'
                 
-                // Archive HTML test reports
-                publishHTML([
-                    allowMissing: false,
-                    alwaysLinkToLastBuild: true,
-                    keepAll: true,
-                    reportDir: 'selenium-tests/target/surefire-reports',
-                    reportFiles: 'index.html',
-                    reportName: 'Selenium Test Report'
-                ])
+                // Note: HTML test reports available in Jenkins artifacts
+                archiveArtifacts artifacts: 'selenium-tests/target/surefire-reports/**/*', allowEmptyArchive: true
                 
                 // Get committer email or use default
                 def committerEmail = ''
@@ -255,7 +260,7 @@ EOF
                             <h3>Test Reports:</h3>
                             <ul>
                                 <li><a href="${env.BUILD_URL}testReport/">JUnit Test Results</a></li>
-                                <li><a href="${env.BUILD_URL}Selenium_20Test_20Report/">Selenium Test Report</a></li>
+                                <li><a href="${env.BUILD_URL}artifact/selenium-tests/target/surefire-reports/">Selenium Test Reports (Artifacts)</a></li>
                             </ul>
                             
                             <p><em>Build completed at: ${new Date()}</em></p>
@@ -280,14 +285,7 @@ EOF
                 junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
                 
                 // Archive HTML test reports
-                publishHTML([
-                    allowMissing: true,
-                    alwaysLinkToLastBuild: true,
-                    keepAll: true,
-                    reportDir: 'selenium-tests/target/surefire-reports',
-                    reportFiles: 'index.html',
-                    reportName: 'Selenium Test Report'
-                ])
+                archiveArtifacts artifacts: 'selenium-tests/target/surefire-reports/**/*', allowEmptyArchive: true
                 
                 // Get committer email or use default
                 def committerEmail = ''
@@ -326,7 +324,7 @@ EOF
                             <h3>Test Reports (if available):</h3>
                             <ul>
                                 <li><a href="${env.BUILD_URL}testReport/">JUnit Test Results</a></li>
-                                <li><a href="${env.BUILD_URL}Selenium_20Test_20Report/">Selenium Test Report</a></li>
+                                <li><a href="${env.BUILD_URL}artifact/selenium-tests/target/surefire-reports/">Selenium Test Reports (Artifacts)</a></li>
                             </ul>
                             
                             <p><strong>Action Required:</strong> Please review the logs and fix the issues.</p>
