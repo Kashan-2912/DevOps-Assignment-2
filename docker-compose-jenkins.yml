@@ -30,18 +30,15 @@ services:
   frontend-jenkins:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: dockerfile
     container_name: ezyshopper-frontend-jenkins
     restart: unless-stopped
     ports:
-    - "5174:80"   # nginx exposes 80
+      - "5174:80"
     depends_on:
-    - backend-jenkins
+      - backend-jenkins
     networks:
-    - ezyshopper-network
-    working_dir: /app
-    volumes:
-      - ./frontend:/app
+      - ezyshopper-network
 
   mongo-jenkins:
     image: mongo:6.0
