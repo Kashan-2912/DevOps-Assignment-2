@@ -11,8 +11,19 @@ pipeline {
         GIT_REPO = 'https://github.com/Kashan-2912/DevOps-Assignment-2.git'
         GIT_BRANCH = 'main'
         
+        // Selenium test repository
+        TEST_REPO = 'https://github.com/Kashan-2912/selenium-test-cases.git'
+        TEST_BRANCH = 'main'
+        
         // Application name
         APP_NAME = 'ezyshopper'
+        
+        // Application URLs (for Selenium tests)
+        FRONTEND_URL = 'http://localhost:5174'
+        BACKEND_URL = 'http://localhost:3001'
+        
+        // Email notification (fallback if git committer email not found)
+        DEFAULT_EMAIL = 'your-email@gmail.com'
     }
     
     stages {
@@ -145,35 +156,199 @@ EOF
                 echo "Health checks passed!"
             }
         }
+        
+        stage('Run Selenium Tests') {
+            steps {
+                script {
+                    echo "========== Stage 6: Running Selenium Tests =========="
+                }
+                
+                // Clone selenium test repository
+                dir('selenium-tests') {
+                    git branch: "${TEST_BRANCH}",
+                        url: "${TEST_REPO}"
+                    
+                    echo "Selenium test repository cloned successfully!"
+                }
+                
+                // Run Selenium tests in Docker container
+                sh '''
+                    echo "Running Selenium tests in Docker container..."
+                    
+                    docker run --rm \
+                        --name selenium-test-runner \
+                        --network host \
+                        -v $(pwd)/selenium-tests:/tests \
+                        -w /tests \
+                        -e BASE_URL=http://localhost:5174 \
+                        -e BACKEND_URL=http://localhost:3001 \
+                        markhobson/maven-chrome:latest \
+                        mvn clean test -DbaseUrl=http://localhost:5174
+                '''
+                
+                echo "Selenium tests completed successfully!"
+            }
+        }
     }
     
     post {
         success {
-            echo "=========================================="
-            echo "Pipeline executed successfully!"
-            echo "Application is running at:"
-            echo "  - Backend: http://YOUR_EC2_IP:3001"
-            echo "  - Frontend: http://YOUR_EC2_IP:5174"
-            echo "=========================================="
-            
-            // Send notification (optional)
-            // You can add email/Slack notifications here
+            script {
+                echo "=========================================="
+                echo "Pipeline executed successfully!"
+                echo "All tests passed!"
+                echo "Application is running at:"
+                echo "  - Backend: http://13.234.238.153:3001"
+                echo "  - Frontend: http://13.234.238.153:5174"
+                echo "=========================================="
+                
+                // Archive test results
+                junit '**/target/surefire-reports/*.xml'
+                
+                // Archive HTML test reports
+                publishHTML([
+                    allowMissing: false,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: 'selenium-tests/target/surefire-reports',
+                    reportFiles: 'index.html',
+                    reportName: 'Selenium Test Report'
+                ])
+                
+                // Get committer email or use default
+                def committerEmail = ''
+                try {
+                    committerEmail = sh(
+                        script: "git --no-pager show -s --format='%ae' HEAD",
+                        returnStdout: true
+                    ).trim()
+                } catch (Exception e) {
+                    committerEmail = env.DEFAULT_EMAIL
+                }
+                
+                if (!committerEmail) {
+                    committerEmail = env.DEFAULT_EMAIL
+                }
+                
+                // Send success email with test results
+                emailext(
+                    subject: "✅ Jenkins Build SUCCESS - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                    body: """
+                        <html>
+                        <body>
+                            <h2 style="color: green;">✅ Build Successful!</h2>
+                            <p><strong>Project:</strong> ${env.JOB_NAME}</p>
+                            <p><strong>Build Number:</strong> ${env.BUILD_NUMBER}</p>
+                            <p><strong>Build URL:</strong> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
+                            <p><strong>Commit:</strong> ${env.GIT_COMMIT}</p>
+                            <p><strong>Branch:</strong> ${env.GIT_BRANCH}</p>
+                            
+                            <h3>Application URLs:</h3>
+                            <ul>
+                                <li><strong>Frontend:</strong> <a href="http://13.234.238.153:5174">http://13.234.238.153:5174</a></li>
+                                <li><strong>Backend:</strong> <a href="http://13.234.238.153:3001">http://13.234.238.153:3001</a></li>
+                            </ul>
+                            
+                            <h3>✅ All Selenium Tests Passed!</h3>
+                            <p>All automated tests executed successfully.</p>
+                            
+                            <h3>Test Reports:</h3>
+                            <ul>
+                                <li><a href="${env.BUILD_URL}testReport/">JUnit Test Results</a></li>
+                                <li><a href="${env.BUILD_URL}Selenium_20Test_20Report/">Selenium Test Report</a></li>
+                            </ul>
+                            
+                            <p><em>Build completed at: ${new Date()}</em></p>
+                        </body>
+                        </html>
+                    """,
+                    to: committerEmail,
+                    mimeType: 'text/html',
+                    attachLog: false,
+                    attachmentsPattern: 'selenium-tests/target/surefire-reports/*.xml'
+                )
+            }
         }
         
         failure {
-            echo "=========================================="
-            echo "Pipeline failed! Check the logs above."
-            echo "=========================================="
-            
-            // Cleanup on failure
-            sh '''
-                docker-compose -f docker-compose-jenkins.yml logs
-                docker-compose -f docker-compose-jenkins.yml down
-            '''
+            script {
+                echo "=========================================="
+                echo "Pipeline failed! Check the logs above."
+                echo "=========================================="
+                
+                // Archive test results even on failure
+                junit allowEmptyResults: true, testResults: '**/target/surefire-reports/*.xml'
+                
+                // Archive HTML test reports
+                publishHTML([
+                    allowMissing: true,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: 'selenium-tests/target/surefire-reports',
+                    reportFiles: 'index.html',
+                    reportName: 'Selenium Test Report'
+                ])
+                
+                // Get committer email or use default
+                def committerEmail = ''
+                try {
+                    committerEmail = sh(
+                        script: "git --no-pager show -s --format='%ae' HEAD",
+                        returnStdout: true
+                    ).trim()
+                } catch (Exception e) {
+                    committerEmail = env.DEFAULT_EMAIL
+                }
+                
+                if (!committerEmail) {
+                    committerEmail = env.DEFAULT_EMAIL
+                }
+                
+                // Send failure email with test results
+                emailext(
+                    subject: "❌ Jenkins Build FAILED - ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                    body: """
+                        <html>
+                        <body>
+                            <h2 style="color: red;">❌ Build Failed!</h2>
+                            <p><strong>Project:</strong> ${env.JOB_NAME}</p>
+                            <p><strong>Build Number:</strong> ${env.BUILD_NUMBER}</p>
+                            <p><strong>Build URL:</strong> <a href="${env.BUILD_URL}">${env.BUILD_URL}</a></p>
+                            <p><strong>Commit:</strong> ${env.GIT_COMMIT}</p>
+                            <p><strong>Branch:</strong> ${env.GIT_BRANCH}</p>
+                            
+                            <h3>Failure Details:</h3>
+                            <p>The pipeline failed during execution. Please check the console output for details.</p>
+                            
+                            <h3>Console Output:</h3>
+                            <p><a href="${env.BUILD_URL}console">View Full Console Output</a></p>
+                            
+                            <h3>Test Reports (if available):</h3>
+                            <ul>
+                                <li><a href="${env.BUILD_URL}testReport/">JUnit Test Results</a></li>
+                                <li><a href="${env.BUILD_URL}Selenium_20Test_20Report/">Selenium Test Report</a></li>
+                            </ul>
+                            
+                            <p><strong>Action Required:</strong> Please review the logs and fix the issues.</p>
+                            <p><em>Build failed at: ${new Date()}</em></p>
+                        </body>
+                        </html>
+                    """,
+                    to: committerEmail,
+                    mimeType: 'text/html',
+                    attachLog: true,
+                    attachmentsPattern: 'selenium-tests/target/surefire-reports/*.xml'
+                )
+                
+                // Cleanup on failure
+                sh '''
+                    docker-compose -f docker-compose-jenkins.yml logs
+                    docker-compose -f docker-compose-jenkins.yml down
+                '''
+            }
         }
         
         always {
-            // Clean up workspace (optional)
             echo "Cleaning up workspace..."
             // cleanWs()
         }
