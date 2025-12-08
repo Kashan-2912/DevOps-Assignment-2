@@ -1,31 +1,13 @@
-
-
 pipeline {
     agent any
-    
+    triggers { githubPush() }
+
     environment {
-        // Define your Docker Hub credentials ID (configured in Jenkins)
-        DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
-        
-        // Git repository URL
-        GIT_REPO = 'https://github.com/Kashan-2912/DevOps-Assignment-2.git'
-        GIT_BRANCH = 'main'
-        
-        // Selenium test repository
-        TEST_REPO = 'https://github.com/Kashan-2912/selenium-test-cases.git'
-        TEST_BRANCH = 'main'
-        
-        // Application name
-        APP_NAME = 'ezyshopper'
-        
-        // Application URLs (for Selenium tests)
-        FRONTEND_URL = 'http://13.234.238.153:5174'
-        BACKEND_URL = 'http://13.234.238.153:3001'
-        
-        // Email notification (fallback if git committer email not found)
-        DEFAULT_EMAIL = 'mkashan2912@gmail.com'
+        DOCKER_COMPOSE_FILE = 'docker-compose-jenkins.yml'
+        PROJECT_NAME = 'ezyshopper-jenkins'
+        SELENIUM_TESTS_REPO = 'https://github.com/Kashan-2912/selenium-test-cases.git'
     }
-    
+
     stages {
         stage('Checkout') {
             steps {
@@ -41,22 +23,22 @@ pipeline {
         }
 
         stage('Create .env') {
-      steps {
-        // map each secret credential id to an environment variable inside withCredentials
-        withCredentials([
-          string(credentialsId: 'MONGO_URI', variable: 'MONGO_URI'),
-          string(credentialsId: 'UPSTASH_REDIS_URL', variable: 'UPSTASH_REDIS_URL'),
-          string(credentialsId: 'ACCESS_TOKEN_SECRET', variable: 'ACCESS_TOKEN_SECRET'),
-          string(credentialsId: 'REFRESH_TOKEN_SECRET', variable: 'REFRESH_TOKEN_SECRET'),
-          string(credentialsId: 'CLOUDINARY_CLOUD_NAME', variable: 'CLOUDINARY_CLOUD_NAME'),
-          string(credentialsId: 'CLOUDINARY_API_KEY', variable: 'CLOUDINARY_API_KEY'),
-          string(credentialsId: 'CLOUDINARY_API_SECRET', variable: 'CLOUDINARY_API_SECRET'),
-          string(credentialsId: 'STRIPE_SECRET_KEY', variable: 'STRIPE_SECRET_KEY'),
-          string(credentialsId: 'CLIENT_URL', variable: 'CLIENT_URL')
-        ]) {
-          // create .env file in workspace with safe permissions
-          sh '''
-            cat > .env <<EOF
+            steps {
+                // map each secret credential id to an environment variable inside withCredentials
+                withCredentials([
+                    string(credentialsId: 'MONGO_URI', variable: 'MONGO_URI'),
+                    string(credentialsId: 'UPSTASH_REDIS_URL', variable: 'UPSTASH_REDIS_URL'),
+                    string(credentialsId: 'ACCESS_TOKEN_SECRET', variable: 'ACCESS_TOKEN_SECRET'),
+                    string(credentialsId: 'REFRESH_TOKEN_SECRET', variable: 'REFRESH_TOKEN_SECRET'),
+                    string(credentialsId: 'CLOUDINARY_CLOUD_NAME', variable: 'CLOUDINARY_CLOUD_NAME'),
+                    string(credentialsId: 'CLOUDINARY_API_KEY', variable: 'CLOUDINARY_API_KEY'),
+                    string(credentialsId: 'CLOUDINARY_API_SECRET', variable: 'CLOUDINARY_API_SECRET'),
+                    string(credentialsId: 'STRIPE_SECRET_KEY', variable: 'STRIPE_SECRET_KEY'),
+                    string(credentialsId: 'CLIENT_URL', variable: 'CLIENT_URL')
+                ]) {
+                    // create .env file in workspace with safe permissions
+                    sh '''
+                        cat > .env <<EOF
 MONGO_URI=${MONGO_URI}
 UPSTASH_REDIS_URL=${UPSTASH_REDIS_URL}
 ACCESS_TOKEN_SECRET=${ACCESS_TOKEN_SECRET}
@@ -67,138 +49,173 @@ CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
 STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
 CLIENT_URL=${CLIENT_URL}
 EOF
-            # ensure .env is not readable by other users (optional)
-            chmod 600 .env
-            echo ".env created"
-          '''
-        }
-      }
-    }
-        
-        stage('Environment Setup') {
-            steps {
-                script {
-                    echo "========== Stage 2: Setting up environment =========="
+                        # ensure .env is not readable by other users (optional)
+                        chmod 600 .env
+                        echo ".env created"
+                    '''
                 }
-                
-                // Display Docker version
-                sh 'docker --version'
-                sh 'docker-compose --version'
-                
-                // Clean up any existing containers with the same name
-                sh '''
-                    docker-compose -f docker-compose-jenkins.yml down || true
-                    docker system prune -f
-                '''
-                
-                echo "Environment setup completed!"
             }
         }
-        
-        stage('Build Application') {
+
+        stage('Cleanup') {
             steps {
                 script {
-                    echo "========== Stage 3: Building application with Docker Compose =========="
+                    echo 'Cleaning up previous containers...'
+                    sh 'docker-compose -f docker-compose-jenkins.yml down -v || true'
                 }
-                
-                // Build and start containers using docker-compose
-                sh '''
-                    docker-compose -f docker-compose-jenkins.yml up -d --build
-                '''
-                
-                echo "Docker containers started successfully!"
             }
         }
-        
-        stage('Verify Deployment') {
+
+        stage('Deploy') {
             steps {
                 script {
-                    echo "========== Stage 4: Verifying deployment =========="
+                    echo 'Starting containerized application...'
+                    sh 'docker-compose -f docker-compose-jenkins.yml up -d --build'
+                    sh 'sleep 30' // Give app time to start
                 }
-                
-                // Wait for containers to be fully up
-                sh 'sleep 30'
-                
-                // Check running containers
-                sh 'docker-compose -f docker-compose-jenkins.yml ps'
-                
-                // Check container logs
-                sh '''
-                    echo "=== Backend Logs ==="
-                    docker logs ezyshopper-backend-jenkins --tail 50
-                    
-                    echo "=== Frontend Logs ==="
-                    docker logs ezyshopper-frontend-jenkins --tail 50
-                '''
-                
-                echo "Deployment verification completed!"
             }
         }
-        
-        stage('Health Check') {
+
+        stage('Verify') {
             steps {
                 script {
-                    echo "========== Stage 5: Performing health checks =========="
+                    echo 'Verifying containers are running...'
+                    sh 'docker ps'
                 }
-                
-                // Check if backend is responding
-                sh '''
-                    echo "Checking backend health..."
-                    curl -f http://localhost:3001/ || exit 1
-                '''
-                
-                // Check if frontend is responding
-                sh '''
-                    echo "Checking frontend health..."
-                    curl -f http://localhost:5174/ || exit 1
-                '''
-                
-                echo "Health checks passed!"
             }
         }
-        
+
         stage('Run Selenium Tests') {
             steps {
-                script {
-                    echo "========== Stage 6: Running Selenium Tests =========="
-                }
-                
-                // Clean up old selenium-tests directory to fix permission issues
-                sh '''
-                    echo "Force-cleaning selenium-tests using Docker root..."
-                    docker run --rm -v $(pwd):/workspace alpine sh -c "rm -rf /workspace/selenium-tests"
-                '''
-                
-                // Clone selenium test repository
                 dir('selenium-tests') {
-                    git branch: "${TEST_BRANCH}",
-                        url: "${TEST_REPO}"
-                    
-                    echo "Selenium test repository cloned successfully!"
+                    git branch: 'main', url: "${SELENIUM_TESTS_REPO}"
+                    sh 'mvn clean test -DbaseUrl=http://13.234.238.153:5174 || true'
                 }
-                
-                // Run Selenium tests in Docker container
-                sh '''
-                    echo "Running Selenium tests in Docker container..."
-                    
-                    docker run --rm \
-                        --name selenium-test-runner \
-                        --network host \
-                        -v $(pwd)/selenium-tests:/tests \
-                        -w /tests \
-                        -e BASE_URL=http://13.234.238.153:5174 \
-                        -e BACKEND_URL=http://13.234.238.153:3001 \
-                        markhobson/maven-chrome:latest \
-                        mvn clean test -DbaseUrl=http://13.234.238.153:5174
-                    
-                    # Fix permissions on generated files
-                    chmod -R 755 selenium-tests/target || true
-                '''
-                
-                echo "Selenium tests completed successfully!"
+            }
+        }
+
+        stage('Publish Test Results') {
+            steps {
+                junit allowEmptyResults: true, testResults: 'selenium-tests/target/surefire-reports/*.xml'
             }
         }
     }
+
+    post {
+        always {
+            script {
+                // Get committer email
+                def committer = ''
+                dir('selenium-tests') {
+                    if (fileExists('.git')) {
+                        committer = sh(
+                            script: "git log -1 --pretty=format:%ae",
+                            returnStdout: true
+                        ).trim()
+                    }
+                }
+                if (!committer || committer == '') {
+                    committer = 'mkashan2912@gmail.com'  // Default email
+                }
+
+                // Parse test results
+                def raw = ''
+                if (fileExists('selenium-tests/target/surefire-reports')) {
+                    raw = sh(
+                        script: "grep -h '<testcase' selenium-tests/target/surefire-reports/*.xml || true",
+                        returnStdout: true
+                    ).trim()
+                }
+
+                int total = 0, passed = 0, failed = 0, skipped = 0
+                def details = ""
+
+                if (raw) {
+                    raw.split('\n').each { line ->
+                        total++
+                        def m = (line =~ /name="([^"]+)"/)
+                        def name = m ? m[0][1] : "Unknown Test"
+                        if (line.contains("<failure")) {
+                            failed++
+                            details += "❌ Failed: ${name}\n"
+                        } else if (line.contains("<skipped") || line.contains("</skipped>")) {
+                            skipped++
+                            details += "⏭️ Skipped: ${name}\n"
+                        } else {
+                            passed++
+                            details += "✅ Passed: ${name}\n"
+                        }
+                    }
+                } else {
+                    details = "No test results found (tests may have failed to run)."
+                }
+
+                def color = currentBuild.currentResult == 'SUCCESS' ? '#28a745' : '#dc3545'
+                def statusEmoji = currentBuild.currentResult == 'SUCCESS' ? '✅' : '❌'
+
+                def emailBody = """
+                    <html>
+                    <body style="font-family: Arial, sans-serif; line-height: 1.6;">
+                        <h2 style="color: ${color};">${statusEmoji} EzyShopper E-Commerce CI – Build #${env.BUILD_NUMBER}</h2>
+                        <p><strong>Status:</strong> <span style="color:${color}; font-size:20px;">${currentBuild.currentResult}</span></p>
+                        <p><strong>Triggered by:</strong> ${currentBuild.getBuildCauses()[0].shortDescription}</p>
+                        <p><strong>Duration:</strong> ${currentBuild.durationString}</p>
+
+                        <h3>🧪 Test Results Summary</h3>
+                        <table style="border-collapse: collapse; margin: 10px 0;">
+                            <tr>
+                                <td style="padding: 8px; border: 1px solid #ddd;"><strong>Total Tests</strong></td>
+                                <td style="padding: 8px; border: 1px solid #ddd;">${total}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px; border: 1px solid #ddd;"><strong>Passed</strong></td>
+                                <td style="padding: 8px; border: 1px solid #ddd; color: green;">${passed}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px; border: 1px solid #ddd;"><strong>Failed</strong></td>
+                                <td style="padding: 8px; border: 1px solid #ddd; color: red;">${failed}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 8px; border: 1px solid #ddd;"><strong>Skipped</strong></td>
+                                <td style="padding: 8px; border: 1px solid #ddd;">${skipped}</td>
+                            </tr>
+                        </table>
+
+                        <h4>📋 Detailed Results:</h4>
+                        <pre style="background:#f4f4f4; padding:15px; border-radius:8px; font-size:14px;">${details}</pre>
+
+                        <hr>
+                        <p>
+                            <a href="${env.BUILD_URL}" style="color:#007bff; text-decoration:none;">🔗 View Full Build</a> |
+                            <a href="${env.BUILD_URL}testReport/" style="color:#007bff; text-decoration:none;">📊 View Test Report</a>
+                        </p>
+                        <small style="color:#666;">Sent from EzyShopper E-Commerce CI Pipeline</small>
+                    </body>
+                    </html>
+                """
+
+                emailext(
+                    to: committer,
+                    subject: "EzyShopper CI #${env.BUILD_NUMBER} – ${currentBuild.currentResult} (${passed}/${total} Passed)",
+                    body: emailBody,
+                    mimeType: 'text/html',
+                    attachLog: true,
+                    compressLog: true
+                )
+            }
+        }
+
+        success {
+            echo 'Pipeline completed successfully!'
+            echo 'Frontend: http://13.234.238.153:5174'
+        }
+
+        failure {
+            echo 'Pipeline failed!'
+            sh 'docker-compose -f docker-compose-jenkins.yml logs || true'
+        }
+    }
+}
     
     post {
         success {
