@@ -89,6 +89,10 @@ EOF
 
         stage('Run Selenium Tests') {
             steps {
+                script {
+                    // Clean up old selenium-tests directory to avoid permission issues
+                    sh 'rm -rf selenium-tests || true'
+                }
                 dir('selenium-tests') {
                     git branch: 'main', url: "${SELENIUM_TESTS_REPO}"
                     sh 'mvn clean test -DbaseUrl=http://13.234.238.153:5174 || true'
