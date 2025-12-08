@@ -90,10 +90,13 @@ EOF
         stage('Run Selenium Tests') {
             steps {
                 script {
-                    // Clean up old selenium-tests directory to avoid permission issues
-                    sh 'sudo rm -rf selenium-tests || true'
+                    // Use a fresh directory per build to avoid permission issues on old files
+                    env.SELENIUM_TESTS_DIR = "selenium-tests-${env.BUILD_NUMBER}"
+                    echo "Using test workspace: ${env.SELENIUM_TESTS_DIR}"
+                    sh "rm -rf ${env.SELENIUM_TESTS_DIR} || true"
+                    sh "mkdir -p ${env.SELENIUM_TESTS_DIR}"
                 }
-                dir('selenium-tests') {
+                dir("${env.SELENIUM_TESTS_DIR}") {
                     git branch: 'main', url: "${SELENIUM_TESTS_REPO}"
                     sh 'mvn clean test -DbaseUrl=http://13.234.238.153:5174 || true'
                 }
@@ -102,7 +105,7 @@ EOF
 
         stage('Publish Test Results') {
             steps {
-                junit allowEmptyResults: true, testResults: 'selenium-tests/target/surefire-reports/*.xml'
+                junit allowEmptyResults: true, testResults: "${env.SELENIUM_TESTS_DIR}/target/surefire-reports/*.xml"
             }
         }
     }
@@ -112,7 +115,8 @@ EOF
             script {
                 // Get committer email
                 def committer = ''
-                dir('selenium-tests') {
+                def testDir = env.SELENIUM_TESTS_DIR ?: 'selenium-tests'
+                dir(testDir) {
                     if (fileExists('.git')) {
                         committer = sh(
                             script: "git log -1 --pretty=format:%ae",
@@ -126,9 +130,9 @@ EOF
 
                 // Parse test results
                 def raw = ''
-                if (fileExists('selenium-tests/target/surefire-reports')) {
+                if (fileExists("${testDir}/target/surefire-reports")) {
                     raw = sh(
-                        script: "grep -h '<testcase' selenium-tests/target/surefire-reports/*.xml || true",
+                        script: "grep -h '<testcase' ${testDir}/target/surefire-reports/*.xml || true",
                         returnStdout: true
                     ).trim()
                 }
