@@ -95,12 +95,16 @@ EOF
                     echo "Using test workspace: ${env.SELENIUM_TESTS_DIR}"
                     sh "rm -rf ${env.SELENIUM_TESTS_DIR} || true"
                     sh "mkdir -p ${env.SELENIUM_TESTS_DIR}"
-                    // Copy repo-embedded selenium tests into the fresh workspace
-                    sh "cp -a selenium-tests/. ${env.SELENIUM_TESTS_DIR}/"
+                    // Clone selenium tests repo fresh each build
                     dir("${env.SELENIUM_TESTS_DIR}") {
-                        // Quick sanity checks before running Maven
+                        git branch: 'main', url: "${SELENIUM_TESTS_REPO}"
+                        // Rename test file to match public class name
+                        sh "mv src/test/java/com/ezyshopper/tests/EzyShopperTests.java src/test/java/com/ezyshopper/tests/EzyShopperAppTests.java"
+                        // Quick sanity checks
                         sh 'pwd && ls -la'
                         sh 'test -f pom.xml'
+                    }
+                    dir("${env.SELENIUM_TESTS_DIR}") {
                         // Run tests inside a Maven+JDK container to ensure mvn is available
                         docker.image('maven:3.9.6-eclipse-temurin-17').inside {
                             sh 'mvn --version'
