@@ -6,6 +6,8 @@ pipeline {
         DOCKER_COMPOSE_FILE = 'docker-compose-jenkins.yml'
         PROJECT_NAME = 'ezyshopper-jenkins'
         SELENIUM_TESTS_REPO = 'https://github.com/Kashan-2912/selenium-test-cases.git'
+        GIT_REPO = 'https://github.com/Kashan-2912/DevOps-Assignment-2'
+        GIT_BRANCH = 'main'
     }
 
     stages {
