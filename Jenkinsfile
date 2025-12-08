@@ -157,7 +157,7 @@ EOF
                     // If it's a GitHub noreply address, replace with actual email
                     if (committer && committer.contains('users.noreply.github.com')) {
                         echo "Detected GitHub noreply address: ${committer}"
-                        committer = 'mkashan2912@gmail.com'
+                        committer = 'kashan.ashraf2912@gmail.com'
                     }
                 } catch (Exception e) {
                     echo "Could not determine committer email: ${e.message}"
@@ -165,7 +165,7 @@ EOF
                 
                 // Fallback to default if still empty
                 if (!committer || committer == '') {
-                    committer = 'mkashan2912@gmail.com'
+                    committer = 'kashan.ashraf2912@gmail.com'
                 }
                 
                 echo "Sending notification to: ${committer}"
