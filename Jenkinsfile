@@ -98,7 +98,11 @@ EOF
                 }
                 dir("${env.SELENIUM_TESTS_DIR}") {
                     git branch: 'main', url: "${SELENIUM_TESTS_REPO}"
-                    sh 'mvn clean test -DbaseUrl=http://13.234.238.153:5174 || true'
+                    // Run tests inside a Maven+JDK container to ensure mvn is available
+                    docker.image('maven:3.9.6-eclipse-temurin-17').inside {
+                        sh 'mvn --version'
+                        sh 'mvn clean test -DbaseUrl=http://13.234.238.153:5174'
+                    }
                 }
             }
         }
