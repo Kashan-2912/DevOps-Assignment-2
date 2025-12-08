@@ -68,7 +68,7 @@ EOF
                         # Check if containers exist
                         if docker-compose -f docker-compose-jenkins.yml ps | grep -q Up; then
                             echo "Containers running, restarting backend/frontend only..."
-                            docker-compose -f docker-compose-jenkins.yml up -d --no-deps --build ezyshopper-backend-jenkins ezyshopper-frontend-jenkins
+                            docker-compose -f docker-compose-jenkins.yml up -d --no-deps --build backend-jenkins frontend-jenkins
                         else
                             echo "No containers running, starting from scratch..."
                             docker-compose -f docker-compose-jenkins.yml up -d --build
