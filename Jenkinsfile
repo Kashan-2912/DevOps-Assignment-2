@@ -96,13 +96,13 @@ EOF
                     sh "rm -rf ${env.SELENIUM_TESTS_DIR} || true"
                     sh "mkdir -p ${env.SELENIUM_TESTS_DIR}"
                     // Spin up Selenium Chrome in a dedicated network so the Maven container can reach it
-                    sh '''
-                        docker network create selenium-net || true
-                        docker rm -f selenium-standalone || true
-                        docker run -d --name selenium-standalone --network selenium-net \
-                          -p 4444:4444 -p 7900:7900 --shm-size=2g \
-                          selenium/standalone-chrome:4.26.0-20241128
-                    '''
+                                        sh '''
+                                                docker network create selenium-net || true
+                                                docker rm -f selenium-standalone || true
+                                                docker run -d --name selenium-standalone --network selenium-net \
+                                                    -p 4444:4444 -p 7900:7900 --shm-size=2g \
+                                                    selenium/standalone-chrome:4.26.0
+                                        '''
                     // Clone selenium tests repo fresh each build
                     dir("${env.SELENIUM_TESTS_DIR}") {
                         git branch: 'main', url: "${SELENIUM_TESTS_REPO}"
