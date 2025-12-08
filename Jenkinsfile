@@ -145,22 +145,33 @@ EOF
                     docker rm -f selenium-standalone || true
                     docker network rm selenium-net || true
                 '''
-                // Get committer email
+                // Get committer email from the main repository (not selenium tests repo)
                 def committer = ''
-                def testDir = env.SELENIUM_TESTS_DIR ?: 'selenium-tests'
-                dir(testDir) {
-                    if (fileExists('.git')) {
+                try {
+                    // Try to get from GitHub webhook/PR if available
+                    committer = env.CHANGE_AUTHOR_EMAIL ?: ''
+                    
+                    // If not from PR, get from last commit in main workspace
+                    if (!committer) {
                         committer = sh(
                             script: "git log -1 --pretty=format:%ae",
                             returnStdout: true
                         ).trim()
                     }
+                } catch (Exception e) {
+                    echo "Could not determine committer email: ${e.message}"
                 }
+                
+                // Fallback to default if still empty
                 if (!committer || committer == '') {
-                    committer = 'mkashan2912@gmail.com'  // Default email
+                    committer = 'mkashan2912@gmail.com'
+                    echo "Using default email: ${committer}"
+                } else {
+                    echo "Sending notification to: ${committer}"
                 }
 
                 // Parse test results
+                def testDir = env.SELENIUM_TESTS_DIR ?: 'selenium-tests'
                 def raw = ''
                 if (fileExists("${testDir}/target/surefire-reports")) {
                     raw = sh(
