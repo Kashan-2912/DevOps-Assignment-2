@@ -95,20 +95,36 @@ EOF
                     echo "Using test workspace: ${env.SELENIUM_TESTS_DIR}"
                     sh "rm -rf ${env.SELENIUM_TESTS_DIR} || true"
                     sh "mkdir -p ${env.SELENIUM_TESTS_DIR}"
+                    // Spin up Selenium Chrome in a dedicated network so the Maven container can reach it
+                    sh '''
+                        docker network create selenium-net || true
+                        docker rm -f selenium-standalone || true
+                        docker run -d --name selenium-standalone --network selenium-net \
+                          -p 4444:4444 -p 7900:7900 --shm-size=2g \
+                          selenium/standalone-chrome:4.26.0-20241128
+                    '''
                     // Clone selenium tests repo fresh each build
                     dir("${env.SELENIUM_TESTS_DIR}") {
                         git branch: 'main', url: "${SELENIUM_TESTS_REPO}"
-                        // Rename test file to match public class name
-                        sh "mv src/test/java/com/ezyshopper/tests/EzyShopperTests.java src/test/java/com/ezyshopper/tests/EzyShopperAppTests.java"
+                                                // Rename test file to match public class name (handle either folder layout)
+                                                sh '''
+                                                        if [ -f src/test/java/com/ezyshopper/tests/EzyShopperTests.java ]; then
+                                                            mv src/test/java/com/ezyshopper/tests/EzyShopperTests.java src/test/java/com/ezyshopper/tests/EzyShopperAppTests.java
+                                                        elif [ -f src/test/java/com/ezyshopper/EzyShopperTests.java ]; then
+                                                            mv src/test/java/com/ezyshopper/EzyShopperTests.java src/test/java/com/ezyshopper/EzyShopperAppTests.java
+                                                        fi
+                                                '''
                         // Quick sanity checks
                         sh 'pwd && ls -la'
                         sh 'test -f pom.xml'
                     }
                     dir("${env.SELENIUM_TESTS_DIR}") {
                         // Run tests inside a Maven+JDK container to ensure mvn is available
-                        docker.image('maven:3.9.6-eclipse-temurin-17').inside {
-                            sh 'mvn --version'
-                            sh 'mvn clean test -DbaseUrl=http://13.234.238.153:5174'
+                        docker.image('maven:3.9.6-eclipse-temurin-17').inside("--network selenium-net") {
+                            withEnv(["SELENIUM_REMOTE_URL=http://selenium-standalone:4444/wd/hub"]) {
+                                sh 'mvn --version'
+                                sh 'mvn clean test -DbaseUrl=http://13.234.238.153:5174 -DseleniumRemoteUrl=http://selenium-standalone:4444/wd/hub'
+                            }
                         }
                     }
                 }
@@ -125,6 +141,10 @@ EOF
     post {
         always {
             script {
+                sh '''
+                    docker rm -f selenium-standalone || true
+                    docker network rm selenium-net || true
+                '''
                 // Get committer email
                 def committer = ''
                 def testDir = env.SELENIUM_TESTS_DIR ?: 'selenium-tests'
