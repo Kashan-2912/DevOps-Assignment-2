@@ -59,35 +59,21 @@ EOF
             }
         }
 
+        stage('Cleanup') {
+            steps {
+                script {
+                    echo 'Cleaning up previous containers...'
+                    sh 'docker-compose -f docker-compose-jenkins.yml down -v || true'
+                }
+            }
+        }
+
         stage('Deploy') {
             steps {
                 script {
-                    echo 'Deploying application (smart restart)...'
-                    // Only rebuild if code changed, keep volumes/data
-                    sh '''
-                        # Check if containers exist
-                        if docker-compose -f docker-compose-jenkins.yml ps | grep -q Up; then
-                            echo "Containers running, restarting backend/frontend only..."
-                            docker-compose -f docker-compose-jenkins.yml up -d --no-deps --build backend-jenkins frontend-jenkins
-                        else
-                            echo "No containers running, starting from scratch..."
-                            docker-compose -f docker-compose-jenkins.yml up -d --build
-                        fi
-                    '''
-                    
-                    // Wait for backend to be healthy (max 60s)
-                    echo 'Waiting for backend health check...'
-                    sh '''
-                        for i in {1..30}; do
-                            if curl -sf http://localhost:3000 > /dev/null 2>&1; then
-                                echo "Backend is ready!"
-                                exit 0
-                            fi
-                            echo "Waiting for backend... ($i/30)"
-                            sleep 2
-                        done
-                        echo "Warning: Backend health check timeout, proceeding anyway..."
-                    '''
+                    echo 'Starting containerized application...'
+                    sh 'docker-compose -f docker-compose-jenkins.yml up -d --build'
+                    sh 'sleep 30' // Give app time to start
                 }
             }
         }
@@ -96,9 +82,7 @@ EOF
             steps {
                 script {
                     echo 'Verifying containers are running...'
-                    sh 'docker-compose -f docker-compose-jenkins.yml ps'
-                    sh 'curl -I http://localhost:5174 || echo "Frontend not responding"'
-                    sh 'curl -I http://localhost:3000 || echo "Backend not responding"'
+                    sh 'docker ps'
                 }
             }
         }
@@ -264,9 +248,7 @@ EOF
                 """
 
                 emailext(
-                    from: "EzyShopper CI <kashan.ashraf2912@gmail.com>",
                     to: committer,
-                    replyTo: committer,
                     subject: "EzyShopper CI #${env.BUILD_NUMBER} – ${currentBuild.currentResult} (${passed}/${total} Passed)",
                     body: emailBody,
                     mimeType: 'text/html',
@@ -287,4 +269,3 @@ EOF
         }
     }
 }
-
