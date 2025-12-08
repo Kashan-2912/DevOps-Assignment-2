@@ -96,8 +96,11 @@ EOF
                     sh "rm -rf ${env.SELENIUM_TESTS_DIR} || true"
                     sh "mkdir -p ${env.SELENIUM_TESTS_DIR}"
                     // Copy repo-embedded selenium tests into the fresh workspace
-                    sh "cp -r selenium-tests/. ${env.SELENIUM_TESTS_DIR}"
+                    sh "cp -a selenium-tests/. ${env.SELENIUM_TESTS_DIR}/"
                     dir("${env.SELENIUM_TESTS_DIR}") {
+                        // Quick sanity checks before running Maven
+                        sh 'pwd && ls -la'
+                        sh 'test -f pom.xml'
                         // Run tests inside a Maven+JDK container to ensure mvn is available
                         docker.image('maven:3.9.6-eclipse-temurin-17').inside {
                             sh 'mvn --version'
