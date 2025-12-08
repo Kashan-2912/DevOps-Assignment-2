@@ -95,13 +95,13 @@ EOF
                     echo "Using test workspace: ${env.SELENIUM_TESTS_DIR}"
                     sh "rm -rf ${env.SELENIUM_TESTS_DIR} || true"
                     sh "mkdir -p ${env.SELENIUM_TESTS_DIR}"
-                }
-                dir("${env.SELENIUM_TESTS_DIR}") {
-                    git branch: 'main', url: "${SELENIUM_TESTS_REPO}"
-                    // Run tests inside a Maven+JDK container to ensure mvn is available
-                    docker.image('maven:3.9.6-eclipse-temurin-17').inside {
-                        sh 'mvn --version'
-                        sh 'mvn clean test -DbaseUrl=http://13.234.238.153:5174'
+                    dir("${env.SELENIUM_TESTS_DIR}") {
+                        git branch: 'main', url: "${SELENIUM_TESTS_REPO}"
+                        // Run tests inside a Maven+JDK container to ensure mvn is available
+                        docker.image('maven:3.9.6-eclipse-temurin-17').inside {
+                            sh 'mvn --version'
+                            sh 'mvn clean test -DbaseUrl=http://13.234.238.153:5174'
+                        }
                     }
                 }
             }
