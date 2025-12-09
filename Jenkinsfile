@@ -104,35 +104,9 @@ EOF
                 script {
                     // Use a fresh directory per build to avoid permission issues on old files
                     env.SELENIUM_TESTS_DIR = "selenium-tests-${env.BUILD_NUMBER}"
-                    env.SELENIUM_CONTAINER = "selenium-standalone-${env.BUILD_NUMBER}"
-                    env.SELENIUM_NETWORK = "selenium-net-${env.BUILD_NUMBER}"
-                    env.SELENIUM_ALIAS = "selenium-standalone"
                     echo "Using test workspace: ${env.SELENIUM_TESTS_DIR}"
                     sh "rm -rf ${env.SELENIUM_TESTS_DIR} || true"
                     sh "mkdir -p ${env.SELENIUM_TESTS_DIR}"
-                    // Spin up Selenium Chrome with increased resources to prevent crashes
-                    sh '''
-                        set -e
-                        docker network create ${SELENIUM_NETWORK} || true
-                        docker rm -f ${SELENIUM_CONTAINER} || true
-                        docker run -d --name ${SELENIUM_CONTAINER} --network ${SELENIUM_NETWORK} --network-alias ${SELENIUM_ALIAS} \
-                            --shm-size=4g --memory=4g --cpus=1 \
-                            -e SE_NODE_MAX_SESSIONS=1 \
-                            -e SE_NODE_SESSION_TIMEOUT=300 \
-                            -e SE_SESSION_REQUEST_TIMEOUT=300 \
-                            selenium/standalone-chrome:4.26.0
-                        
-                        # Wait for Selenium to be ready
-                        for i in {1..30}; do
-                            if curl -sf http://${SELENIUM_ALIAS}:4444/status | grep -q '"ready":true'; then
-                                echo "Selenium Grid is ready!"
-                                exit 0
-                            fi
-                            echo "Waiting for Selenium Grid... ($i/30)"
-                            sleep 2
-                        done
-                        echo "Warning: Selenium Grid health check timeout"
-                    '''
                     // Clone selenium tests repo fresh each build
                     dir("${env.SELENIUM_TESTS_DIR}") {
                         sh "git clone --depth 1 ${SELENIUM_TESTS_REPO} ."
@@ -150,13 +124,20 @@ EOF
                     }
                     dir("${env.SELENIUM_TESTS_DIR}") {
                         // Run tests inside a Maven+JDK container to ensure mvn is available
-                        docker.image('maven:3.9.6-eclipse-temurin-17').inside("--network ${env.SELENIUM_NETWORK}") {
+                        docker.image('maven:3.9.6-eclipse-temurin-17').inside {
                             withEnv([
-                                "SELENIUM_REMOTE_URL=http://${env.SELENIUM_ALIAS}:4444/wd/hub",
-                                "SELENIUM_ALIAS=${env.SELENIUM_ALIAS}"
+                                "SELENIUM_REMOTE_URL=",
+                                "CHROME_BIN=/usr/bin/chromium",
+                                "CHROMEDRIVER=/usr/lib/chromium/chromedriver"
                             ]) {
-                                sh 'mvn --version'
-                                sh "mvn clean test -DbaseUrl=http://13.234.238.153:5174 -DseleniumRemoteUrl=http://${env.SELENIUM_ALIAS}:4444/wd/hub"
+                                sh '''
+                                    apt-get update -qq
+                                    DEBIAN_FRONTEND=noninteractive apt-get install -y chromium chromium-driver fonts-liberation > /dev/null
+                                    chromium --version
+                                    chromedriver --version
+                                    mvn --version
+                                '''
+                                sh "mvn clean test -DbaseUrl=http://13.234.238.153:5174"
                             }
                         }
                     }
@@ -174,10 +155,6 @@ EOF
     post {
         always {
             script {
-                sh '''
-                    docker rm -f ${SELENIUM_CONTAINER} || true
-                    docker network rm ${SELENIUM_NETWORK} || true
-                '''
                 // Get committer email - handle GitHub noreply addresses
                 def committer = ''
                 try {
