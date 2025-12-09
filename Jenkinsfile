@@ -126,15 +126,21 @@ EOF
                         // Run tests inside a Maven+JDK container to ensure mvn is available
                         docker.image('maven:3.9.6-eclipse-temurin-17').inside('-u root:root') {
                             withEnv([
-                                "SELENIUM_REMOTE_URL=",
-                                "CHROME_BIN=/usr/bin/chromium",
-                                "CHROMEDRIVER=/usr/lib/chromium/chromedriver"
+                                "SELENIUM_REMOTE_URL="
                             ]) {
                                 sh '''
+                                    # Install Google Chrome and ChromeDriver (Debian-based)
                                     apt-get update -qq
-                                    DEBIAN_FRONTEND=noninteractive apt-get install -y chromium chromium-driver fonts-liberation > /dev/null
-                                    chromium --version
-                                    chromedriver --version
+                                    DEBIAN_FRONTEND=noninteractive apt-get install -y wget gnupg unzip > /dev/null
+                                    
+                                    # Add Chrome repo
+                                    wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add -
+                                    echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
+                                    apt-get update -qq
+                                    DEBIAN_FRONTEND=noninteractive apt-get install -y google-chrome-stable > /dev/null
+                                    
+                                    # ChromeDriver auto-managed by WebDriverManager in tests
+                                    google-chrome --version
                                     mvn --version
                                 '''
                                 sh "mvn clean test -DbaseUrl=http://13.234.238.153:5174"
