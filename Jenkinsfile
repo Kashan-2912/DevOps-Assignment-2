@@ -268,8 +268,9 @@ EOF
                     subject: "EzyShopper CI #${env.BUILD_NUMBER} – ${currentBuild.currentResult} (${passed}/${total} Passed)",
                     body: emailBody,
                     mimeType: 'text/html',
-                    attachLog: true,
-                    compressLog: true
+                    attachLog: false,
+                    from: "EzyShopper CI <kashan.ashraf2912@gmail.com>",
+                    replyTo: committer
                 )
             }
         }
