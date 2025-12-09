@@ -1,4 +1,4 @@
-# test 
+# test push trigger
  
  # EzyShopper Architecture Documentation
 
