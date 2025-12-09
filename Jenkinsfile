@@ -63,7 +63,8 @@ EOF
             steps {
                 script {
                     echo 'Cleaning up previous containers...'
-                    sh 'docker-compose -f docker-compose-jenkins.yml down -v || true'
+                    // Faster: stop and remove containers but keep volumes/images cached
+                    sh 'docker-compose -f docker-compose-jenkins.yml down --remove-orphans || true'
                 }
             }
         }
@@ -72,8 +73,19 @@ EOF
             steps {
                 script {
                     echo 'Starting containerized application...'
-                    sh 'docker-compose -f docker-compose-jenkins.yml up -d --build'
-                    sh 'sleep 30' // Give app time to start
+                    // Rebuild only required services to save time
+                    sh 'docker-compose -f docker-compose-jenkins.yml up -d --build backend-jenkins frontend-jenkins mongo-jenkins'
+                    // Lightweight health check instead of fixed sleep
+                    sh '''
+                        for i in {1..30}; do
+                            if curl -sf http://localhost:3001/ || curl -sf http://localhost:3000/; then
+                                echo "Backend responding"
+                                break
+                            fi
+                            echo "Waiting for backend to be ready... ($i/30)"
+                            sleep 2
+                        done
+                    '''
                 }
             }
         }
@@ -123,7 +135,7 @@ EOF
                     '''
                     // Clone selenium tests repo fresh each build
                     dir("${env.SELENIUM_TESTS_DIR}") {
-                        git branch: 'main', url: "${SELENIUM_TESTS_REPO}"
+                        sh "git clone --depth 1 ${SELENIUM_TESTS_REPO} ."
                                                 // Rename test file to match public class name (handle either folder layout)
                                                 sh '''
                                                         if [ -f src/test/java/com/ezyshopper/tests/EzyShopperTests.java ]; then
