@@ -92,18 +92,27 @@ EOF
                 script {
                     // Use a fresh directory per build to avoid permission issues on old files
                     env.SELENIUM_TESTS_DIR = "selenium-tests-${env.BUILD_NUMBER}"
+                    env.SELENIUM_CONTAINER = "selenium-standalone-${env.BUILD_NUMBER}"
+                    env.SELENIUM_NETWORK = "selenium-net-${env.BUILD_NUMBER}"
+                    env.SELENIUM_ALIAS = "selenium-standalone"
                     echo "Using test workspace: ${env.SELENIUM_TESTS_DIR}"
                     sh "rm -rf ${env.SELENIUM_TESTS_DIR} || true"
                     sh "mkdir -p ${env.SELENIUM_TESTS_DIR}"
                     // Spin up Selenium Chrome with increased resources to prevent crashes
                     sh '''
-                        docker network create selenium-net || true
-                        docker rm -f selenium-standalone || true
-                        docker run -d --name selenium-standalone --network selenium-net -p 4444:4444 -p 7900:7900 --shm-size=4g --memory=4g --cpus=2 -e SE_NODE_MAX_SESSIONS=1 -e SE_NODE_SESSION_TIMEOUT=300 -e SE_SESSION_REQUEST_TIMEOUT=300 selenium/standalone-chrome:4.26.0
+                        set -e
+                        docker network create ${SELENIUM_NETWORK} || true
+                        docker rm -f ${SELENIUM_CONTAINER} || true
+                        docker run -d --name ${SELENIUM_CONTAINER} --network ${SELENIUM_NETWORK} --network-alias ${SELENIUM_ALIAS} \
+                            --shm-size=4g --memory=4g --cpus=2 \
+                            -e SE_NODE_MAX_SESSIONS=1 \
+                            -e SE_NODE_SESSION_TIMEOUT=300 \
+                            -e SE_SESSION_REQUEST_TIMEOUT=300 \
+                            selenium/standalone-chrome:4.26.0
                         
                         # Wait for Selenium to be ready
                         for i in {1..30}; do
-                            if curl -sf http://localhost:4444/status | grep -q '"ready":true'; then
+                            if curl -sf http://${SELENIUM_ALIAS}:4444/status | grep -q '"ready":true'; then
                                 echo "Selenium Grid is ready!"
                                 exit 0
                             fi
@@ -129,10 +138,10 @@ EOF
                     }
                     dir("${env.SELENIUM_TESTS_DIR}") {
                         // Run tests inside a Maven+JDK container to ensure mvn is available
-                        docker.image('maven:3.9.6-eclipse-temurin-17').inside("--network selenium-net") {
-                            withEnv(["SELENIUM_REMOTE_URL=http://selenium-standalone:4444/wd/hub"]) {
+                        docker.image('maven:3.9.6-eclipse-temurin-17').inside("--network ${env.SELENIUM_NETWORK}") {
+                            withEnv(["SELENIUM_REMOTE_URL=http://${env.SELENIUM_ALIAS}:4444/wd/hub", "SELENIUM_ALIAS=${env.SELENIUM_ALIAS}"]) {
                                 sh 'mvn --version'
-                                sh 'mvn clean test -DbaseUrl=http://13.234.238.153:5174 -DseleniumRemoteUrl=http://selenium-standalone:4444/wd/hub'
+                                sh 'mvn clean test -DbaseUrl=http://13.234.238.153:5174 -DseleniumRemoteUrl=http://'"${SELENIUM_ALIAS}"':4444/wd/hub'
                             }
                         }
                     }
@@ -151,8 +160,8 @@ EOF
         always {
             script {
                 sh '''
-                    docker rm -f selenium-standalone || true
-                    docker network rm selenium-net || true
+                    docker rm -f ${SELENIUM_CONTAINER} || true
+                    docker network rm ${SELENIUM_NETWORK} || true
                 '''
                 // Get committer email - handle GitHub noreply addresses
                 def committer = ''
