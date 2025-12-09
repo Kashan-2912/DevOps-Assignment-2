@@ -104,7 +104,7 @@ EOF
                         docker network create ${SELENIUM_NETWORK} || true
                         docker rm -f ${SELENIUM_CONTAINER} || true
                         docker run -d --name ${SELENIUM_CONTAINER} --network ${SELENIUM_NETWORK} --network-alias ${SELENIUM_ALIAS} \
-                            --shm-size=4g --memory=4g --cpus=2 \
+                            --shm-size=4g --memory=4g --cpus=1 \
                             -e SE_NODE_MAX_SESSIONS=1 \
                             -e SE_NODE_SESSION_TIMEOUT=300 \
                             -e SE_SESSION_REQUEST_TIMEOUT=300 \
