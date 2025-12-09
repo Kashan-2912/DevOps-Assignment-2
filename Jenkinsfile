@@ -139,9 +139,12 @@ EOF
                     dir("${env.SELENIUM_TESTS_DIR}") {
                         // Run tests inside a Maven+JDK container to ensure mvn is available
                         docker.image('maven:3.9.6-eclipse-temurin-17').inside("--network ${env.SELENIUM_NETWORK}") {
-                            withEnv(["SELENIUM_REMOTE_URL=http://${env.SELENIUM_ALIAS}:4444/wd/hub", "SELENIUM_ALIAS=${env.SELENIUM_ALIAS}"]) {
+                            withEnv([
+                                "SELENIUM_REMOTE_URL=http://${env.SELENIUM_ALIAS}:4444/wd/hub",
+                                "SELENIUM_ALIAS=${env.SELENIUM_ALIAS}"
+                            ]) {
                                 sh 'mvn --version'
-                                sh 'mvn clean test -DbaseUrl=http://13.234.238.153:5174 -DseleniumRemoteUrl=http://'"${SELENIUM_ALIAS}"':4444/wd/hub'
+                                sh "mvn clean test -DbaseUrl=http://13.234.238.153:5174 -DseleniumRemoteUrl=http://${env.SELENIUM_ALIAS}:4444/wd/hub"
                             }
                         }
                     }
