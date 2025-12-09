@@ -124,7 +124,7 @@ EOF
                     }
                     dir("${env.SELENIUM_TESTS_DIR}") {
                         // Run tests inside a Maven+JDK container to ensure mvn is available
-                        docker.image('maven:3.9.6-eclipse-temurin-17').inside {
+                        docker.image('maven:3.9.6-eclipse-temurin-17').inside('-u root:root') {
                             withEnv([
                                 "SELENIUM_REMOTE_URL=",
                                 "CHROME_BIN=/usr/bin/chromium",
