@@ -1,4 +1,4 @@
-# EzyShopper - E-Commerce Web Application
+ # EzyShopper - E-Commerce Web Application
 
 A modern full-stack e-commerce application with automated CI/CD pipeline using Jenkins.
 
